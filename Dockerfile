@@ -20,6 +20,10 @@ COPY . .
 
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
-EXPOSE 9000
+# EXPOSE 9000
 
-CMD ["php-fpm"]
+EXPOSE 10000
+
+# CMD ["php-fpm"]
+
+CMD php artisan serve --host=0.0.0.0 --port=10000
