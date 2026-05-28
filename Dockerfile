@@ -1,4 +1,5 @@
-FROM php:8.2-fpm
+# FROM php:8.2-fpm
+FROM php:8.2-cli
 
 RUN apt-get update && apt-get install -y \
     git \
@@ -27,3 +28,4 @@ EXPOSE 10000
 # CMD ["php-fpm"]
 
 CMD php artisan serve --host=0.0.0.0 --port=10000
+
