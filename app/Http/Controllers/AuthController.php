@@ -151,7 +151,7 @@ class AuthController extends Controller
             'message' => 'Inicio de sesión correcto',
             'token' => $token,
             'token_type' => 'Bearer',
-            'expires_in_minutes' => 4320,
+            'expires_in_minutes' => 60,
             'user' => $usuario,
         ]);
     }
