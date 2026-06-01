@@ -3,8 +3,5 @@
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return response()->json([
-        'status' => 'ok',
-        'message' => 'Laravel funcionando'
-    ]);
+    return "Frontend funcionando";
 });
