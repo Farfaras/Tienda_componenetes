@@ -122,50 +122,51 @@ class EloquentCotizacionRepository implements CotizacionRepositoryInterface
      */
     private function generarNroDocumentoUnico(): int
     {
-        $maxAttempts = 10; // Aumentamos a 10 intentos
+        $maxAttempts = 10;
         $attempt = 0;
-        
+
         while ($attempt < $maxAttempts) {
-            // Obtener el último número + 1 (simple)
-            $ultimo = DocumentoComercial::where('tipo_documento', 'cotizacion')
+
+            $ultimoDocumento = DocumentoComercial::where('tipo_documento', 'cotizacion')
+                ->orderByDesc('nro_documento')
                 ->lockForUpdate()
-                ->max('nro_documento');
-            
-            $nextNumber = $ultimo ? ((int) $ultimo + 1) : 1;
-            
-            // Verificar doblemente que no exista
+                ->first();
+
+            $ultimo = $ultimoDocumento?->nro_documento ?? 0;
+
+            $nextNumber = $ultimo + 1;
+
             $exists = DocumentoComercial::where('tipo_documento', 'cotizacion')
                 ->where('nro_documento', $nextNumber)
                 ->exists();
-            
+
             if (!$exists) {
                 return $nextNumber;
             }
-            
+
             $attempt++;
-            
-            // Si hay duplicado, forzamos un número más alto
+
             if ($attempt > 1) {
-                // Buscar el máximo actual y sumar más
+
                 $maxActual = DocumentoComercial::where('tipo_documento', 'cotizacion')
                     ->max('nro_documento');
-                $nextNumber = $maxActual + $attempt;
-                
+
+                $nextNumber = ((int) $maxActual) + $attempt;
+
                 $exists = DocumentoComercial::where('tipo_documento', 'cotizacion')
                     ->where('nro_documento', $nextNumber)
                     ->exists();
-                
+
                 if (!$exists) {
                     return $nextNumber;
                 }
             }
         }
-        
-        // Si falla, obtener el máximo + 100 (solución extrema)
+
         $maxActual = DocumentoComercial::where('tipo_documento', 'cotizacion')
             ->max('nro_documento');
-        
-        return $maxActual + 100;
+
+        return ((int) $maxActual) + 100;
     }
     
     /**
@@ -210,10 +211,11 @@ class EloquentCotizacionRepository implements CotizacionRepositoryInterface
      */ 
     private function generarNroDocumentoCotizacion(): int
     {
-        $ultimo = DocumentoComercial::where('tipo_documento', 'cotizacion')
+        $ultimoDocumento = DocumentoComercial::where('tipo_documento', 'cotizacion')
+            ->orderByDesc('nro_documento')
             ->lockForUpdate()
-            ->max('nro_documento');
+            ->first();
 
-        return $ultimo ? ((int) $ultimo + 1) : 1;
+        return ($ultimoDocumento?->nro_documento ?? 0) + 1;
     }
 }
