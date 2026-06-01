@@ -130,65 +130,14 @@ class EloquentVentaRepository implements VentaRepositoryInterface
      */
     private function generarNroDocumentoUnico(): int
     {
-        $maxAttempts = 10;
-        $attempt = 0;
+        $ultimoDocumento = DocumentoComercial::where('tipo_documento', 'venta')
+            ->orderByDesc('nro_documento')
+            ->lockForUpdate()
+            ->first();
 
-        while ($attempt < $maxAttempts) {
+        $ultimo = (int) ($ultimoDocumento?->nro_documento ?? 0);
 
-            // Obtener el último número global de toda la tabla
-            $ultimoDocumento = DocumentoComercial::orderByDesc('nro_documento')
-                ->lockForUpdate()
-                ->first();
-
-            $ultimo = (int) ($ultimoDocumento?->nro_documento ?? 0);
-
-            $nextNumber = $ultimo + 1;
-
-            // Verificar que no exista en toda la tabla
-            $exists = DocumentoComercial::where('nro_documento', $nextNumber)
-                ->exists();
-
-            if (!$exists) {
-                Log::info(
-                    "Número de venta generado: {$nextNumber} (intento " . ($attempt + 1) . ")"
-                );
-
-                return $nextNumber;
-            }
-
-            $attempt++;
-
-            Log::warning(
-                "Número duplicado detectado para venta: {$nextNumber}, reintentando..."
-            );
-
-            // Buscar el máximo global y avanzar
-            $maxActual = (int) DocumentoComercial::max('nro_documento');
-
-            $nextNumber = $maxActual + $attempt;
-
-            $exists = DocumentoComercial::where('nro_documento', $nextNumber)
-                ->exists();
-
-            if (!$exists) {
-                Log::info(
-                    "Número de venta generado (forzado): {$nextNumber}"
-                );
-
-                return $nextNumber;
-            }
-        }
-
-        // Respaldo extremo
-        $maxActual = (int) DocumentoComercial::max('nro_documento');
-
-        $fallbackNumber = $maxActual + 100;
-
-        Log::warning(
-            "Usando número de respaldo para venta: {$fallbackNumber}"
-        );
-
-        return $fallbackNumber;
+        return $ultimo + 1;
     }
 
     public function countActivas(): int
@@ -397,11 +346,12 @@ class EloquentVentaRepository implements VentaRepositoryInterface
      */
     private function generarNroDocumentoVenta(): int
     {
-        $ultimoDocumento = DocumentoComercial::orderByDesc('nro_documento')
+        $ultimoDocumento = DocumentoComercial::where('tipo_documento', 'venta')
+            ->orderByDesc('nro_documento')
             ->lockForUpdate()
             ->first();
 
-        return ((int) ($ultimoDocumento?->nro_documento ?? 0)) + 1;
+        return ($ultimoDocumento?->nro_documento ?? 0) + 1;
     }
 
 }
