@@ -127,46 +127,60 @@ class EloquentCotizacionRepository implements CotizacionRepositoryInterface
 
         while ($attempt < $maxAttempts) {
 
-            $ultimoDocumento = DocumentoComercial::where('tipo_documento', 'cotizacion')
-                ->orderByDesc('nro_documento')
+            // Obtener el último número global
+            $ultimoDocumento = DocumentoComercial::orderByDesc('nro_documento')
                 ->lockForUpdate()
                 ->first();
 
-            $ultimo = $ultimoDocumento?->nro_documento ?? 0;
+            $ultimo = (int) ($ultimoDocumento?->nro_documento ?? 0);
 
             $nextNumber = $ultimo + 1;
 
-            $exists = DocumentoComercial::where('tipo_documento', 'cotizacion')
-                ->where('nro_documento', $nextNumber)
+            // Verificar en TODA la tabla
+            $exists = DocumentoComercial::where('nro_documento', $nextNumber)
                 ->exists();
 
             if (!$exists) {
+                Log::info(
+                    "Número de cotización generado: {$nextNumber} (intento " . ($attempt + 1) . ")"
+                );
+
                 return $nextNumber;
             }
 
             $attempt++;
 
-            if ($attempt > 1) {
+            Log::warning(
+                "Número duplicado detectado para cotización: {$nextNumber}, reintentando..."
+            );
 
-                $maxActual = DocumentoComercial::where('tipo_documento', 'cotizacion')
-                    ->max('nro_documento');
+            // Buscar el máximo global y avanzar
+            $maxActual = (int) DocumentoComercial::max('nro_documento');
 
-                $nextNumber = ((int) $maxActual) + $attempt;
+            $nextNumber = $maxActual + $attempt;
 
-                $exists = DocumentoComercial::where('tipo_documento', 'cotizacion')
-                    ->where('nro_documento', $nextNumber)
-                    ->exists();
+            $exists = DocumentoComercial::where('nro_documento', $nextNumber)
+                ->exists();
 
-                if (!$exists) {
-                    return $nextNumber;
-                }
+            if (!$exists) {
+                Log::info(
+                    "Número de cotización generado (forzado): {$nextNumber}"
+                );
+
+                return $nextNumber;
             }
         }
 
-        $maxActual = DocumentoComercial::where('tipo_documento', 'cotizacion')
-            ->max('nro_documento');
+        // Respaldo extremo
+        $maxActual = (int) DocumentoComercial::max('nro_documento');
 
-        return ((int) $maxActual) + 100;
+        $fallbackNumber = $maxActual + 100;
+
+        Log::warning(
+            "Usando número de respaldo para cotización: {$fallbackNumber}"
+        );
+
+        return $fallbackNumber;
     }
     
     /**
@@ -211,11 +225,10 @@ class EloquentCotizacionRepository implements CotizacionRepositoryInterface
      */ 
     private function generarNroDocumentoCotizacion(): int
     {
-        $ultimoDocumento = DocumentoComercial::where('tipo_documento', 'cotizacion')
-            ->orderByDesc('nro_documento')
+        $ultimoDocumento = DocumentoComercial::orderByDesc('nro_documento')
             ->lockForUpdate()
             ->first();
 
-        return ($ultimoDocumento?->nro_documento ?? 0) + 1;
+        return ((int) ($ultimoDocumento?->nro_documento ?? 0)) + 1;
     }
 }
