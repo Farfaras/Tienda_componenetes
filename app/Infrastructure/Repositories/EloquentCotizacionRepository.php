@@ -122,96 +122,16 @@ class EloquentCotizacionRepository implements CotizacionRepositoryInterface
      */
     private function generarNroDocumentoUnico(): int
     {
-        $maxAttempts = 10;
-        $attempt = 0;
+        $ultimoDocumento = DocumentoComercial::where('tipo_documento', 'cotizacion')
+            ->orderByDesc('nro_documento')
+            ->lockForUpdate()
+            ->first();
 
-        while ($attempt < $maxAttempts) {
+        $ultimo = (int) ($ultimoDocumento?->nro_documento ?? 0);
 
-            // Obtener el último número global
-            $ultimoDocumento = DocumentoComercial::orderByDesc('nro_documento')
-                ->lockForUpdate()
-                ->first();
-
-            $ultimo = (int) ($ultimoDocumento?->nro_documento ?? 0);
-
-            $nextNumber = $ultimo + 1;
-
-            // Verificar en TODA la tabla
-            $exists = DocumentoComercial::where('nro_documento', $nextNumber)
-                ->exists();
-
-            if (!$exists) {
-                Log::info(
-                    "Número de cotización generado: {$nextNumber} (intento " . ($attempt + 1) . ")"
-                );
-
-                return $nextNumber;
-            }
-
-            $attempt++;
-
-            Log::warning(
-                "Número duplicado detectado para cotización: {$nextNumber}, reintentando..."
-            );
-
-            // Buscar el máximo global y avanzar
-            $maxActual = (int) DocumentoComercial::max('nro_documento');
-
-            $nextNumber = $maxActual + $attempt;
-
-            $exists = DocumentoComercial::where('nro_documento', $nextNumber)
-                ->exists();
-
-            if (!$exists) {
-                Log::info(
-                    "Número de cotización generado (forzado): {$nextNumber}"
-                );
-
-                return $nextNumber;
-            }
-        }
-
-        // Respaldo extremo
-        $maxActual = (int) DocumentoComercial::max('nro_documento');
-
-        $fallbackNumber = $maxActual + 100;
-
-        Log::warning(
-            "Usando número de respaldo para cotización: {$fallbackNumber}"
-        );
-
-        return $fallbackNumber;
+        return $ultimo + 1;
     }
     
-    /**
-     * Obtiene el siguiente número disponible automáticamente
-     */
-    private function getNextAvailableNumber(): int
-    {
-        // Usar MAX para obtener el último número
-        $maxNumber = DocumentoComercial::where('tipo_documento', 'cotizacion')
-            ->max('nro_documento');
-        
-        // Si no hay cotizaciones, empezar desde 1
-        if (!$maxNumber) {
-            return 1;
-        }
-        
-        // Intentar encontrar el primer número disponible en la secuencia
-        // Esto maneja huecos en la numeración
-        for ($i = 1; $i <= $maxNumber + 1; $i++) {
-            $exists = DocumentoComercial::where('tipo_documento', 'cotizacion')
-                ->where('nro_documento', $i)
-                ->exists();
-            
-            if (!$exists) {
-                return $i;
-            }
-        }
-        
-        // Si todos los números están ocupados, usar el siguiente
-        return $maxNumber + 1;
-    }
 
     public function countActivas(): int
     {
