@@ -3,6 +3,7 @@ FROM php:8.2-cli
 RUN apt-get update && apt-get install -y \
     git \
     curl \
+    libcurl4-openssl-dev \
     unzip \
     zip \
     libpng-dev \
@@ -10,11 +11,20 @@ RUN apt-get update && apt-get install -y \
     libfreetype6-dev \
     libonig-dev \
     libxml2-dev \
-    libcurl4-openssl-dev \
     libzip-dev \
     libpq-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install pdo pdo_mysql pdo_pgsql mbstring exif pcntl bcmath gd zip
+    && docker-php-ext-install -j$(nproc) \
+        pdo \
+        pdo_mysql \
+        pdo_pgsql \
+        mbstring \
+        exif \
+        pcntl \
+        bcmath \
+        gd \
+        zip \
+        curl
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
@@ -22,14 +32,22 @@ WORKDIR /var/www
 
 COPY . .
 
-RUN composer install --no-dev --optimize-autoloader
+# Instalar dependencias
+RUN composer install --optimize-autoloader
 
+# Cachear configuraciones (importante para producción)
+RUN php artisan config:cache
+RUN php artisan route:cache
+
+# Crear directorios
 RUN mkdir -p storage/framework/cache \
     storage/framework/sessions \
     storage/framework/views \
     storage/logs \
-    bootstrap/cache && \
-    chown -R www-data:www-data storage bootstrap/cache
+    bootstrap/cache
+
+RUN chown -R www-data:www-data storage bootstrap/cache
+RUN chmod -R 775 storage bootstrap/cache
 
 EXPOSE 10000
 
