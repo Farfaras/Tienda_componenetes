@@ -24,7 +24,12 @@ COPY . .
 
 RUN composer install --no-dev --optimize-autoloader
 
-RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
+RUN mkdir -p storage/framework/cache \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/logs \
+    bootstrap/cache && \
+    chown -R www-data:www-data storage bootstrap/cache
 
 EXPOSE 10000
 
