@@ -16,6 +16,7 @@ use App\Domain\Repositories\VentaRepositoryInterface;
 use App\Infrastructure\Repositories\EloquentVentaRepository;
 use App\Domain\Repositories\CotizacionRepositoryInterface;
 use App\Infrastructure\Repositories\EloquentCotizacionRepository;
+use App\Infrastructure\Services\GeminiAIService;
 
 use Illuminate\Support\ServiceProvider;
 
@@ -52,14 +53,21 @@ class AppServiceProvider extends ServiceProvider
             UsuarioRepositoryInterface::class,
             EloquentUsuarioRepository::class
         );
+        
         $this->app->bind(
             VentaRepositoryInterface::class,
             EloquentVentaRepository::class
         );
+        
         $this->app->bind(
             CotizacionRepositoryInterface::class,
             EloquentCotizacionRepository::class
         );
+
+        // Registrar GeminiAIService como singleton
+        $this->app->singleton(GeminiAIService::class, function ($app) {
+            return new GeminiAIService();
+        });
     }
 
     /**
