@@ -19,9 +19,7 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['*'],
-
-    // 'allowed_origins' => ['http://localhost:5173/'],
+    'allowed_origins' => ['https://tienda-componentes-frontend.onrender.com'],
 
     'allowed_origins_patterns' => [],
 
