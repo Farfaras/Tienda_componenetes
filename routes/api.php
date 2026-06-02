@@ -8,6 +8,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\VentaController;
 use App\Http\Controllers\CotizacionController;
+use App\Http\Controllers\AIAnalysisController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -53,4 +54,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('cotizaciones/activas/count', [CotizacionController::class, 'countActivas']); 
     Route::get('cotizaciones/anuladas', [CotizacionController::class, 'anuladas']);
     Route::apiResource('cotizaciones', CotizacionController::class);
+
+    Route::prefix('ai-analysis')->group(function () {
+        Route::get('ventas-semanales', [AIAnalysisController::class, 'analizarVentasSemanales']);
+        Route::get('top-productos', [AIAnalysisController::class, 'analizarTopProductos']);
+        Route::get('comparativa-activas-anuladas', [AIAnalysisController::class, 'analizarComparativaActivasVsAnuladas']);
+        Route::get('tendencia-6-meses', [AIAnalysisController::class, 'analizarTendencia6Meses']);
+    });
 });
