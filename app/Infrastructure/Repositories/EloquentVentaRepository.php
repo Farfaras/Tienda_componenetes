@@ -38,61 +38,72 @@ class EloquentVentaRepository implements VentaRepositoryInterface
     
     public function create(array $data): DocumentoComercial
     {
-        return DB::transaction(function () use ($data) {
-            $total = 0;
-            $nroDocumento = $this->generarNroDocumentoUnico();
+        $maxAttempts = 3;
+        
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                return DB::transaction(function () use ($data) {
+                    $total = 0;
+                    $nroDocumento = $this->generarNroDocumentoUnico();
 
-            $documento = DocumentoComercial::create([
-                'nro_documento' => $nroDocumento,
-                'fecha' => $data['fecha'],
-                'fecha_vigencia' => null,
-                'tipo_documento' => 'venta',
-                'total' => 0,
-                'estado' => true,
-                'id_cliente' => $data['id_cliente'],
-                'id_usuario' => $data['id_usuario'],
-            ]);
+                    $documento = DocumentoComercial::create([
+                        'nro_documento' => $nroDocumento,
+                        'fecha' => $data['fecha'],
+                        'fecha_vigencia' => null,
+                        'tipo_documento' => 'venta',
+                        'total' => 0,
+                        'estado' => true,
+                        'id_cliente' => $data['id_cliente'],
+                        'id_usuario' => $data['id_usuario'],
+                    ]);
 
-            foreach ($data['detalles'] as $detalle) {
-               $producto = Producto::find($detalle['id_producto']);
+                    foreach ($data['detalles'] as $detalle) {
+                        $producto = Producto::find($detalle['id_producto']);
 
-                if (!$producto) {
-                    throw new \Exception('Producto no encontrado: ' . $detalle['id_producto']);
+                        if (!$producto) {
+                            throw new \Exception('Producto no encontrado: ' . $detalle['id_producto']);
+                        }
+
+                        if (!$producto->estado) {
+                            throw new \Exception('El producto está inactivo: ' . $producto->nombre);
+                        }
+
+                        if ($producto->stock < $detalle['cantidad']) {
+                            throw new \Exception('Stock insuficiente para el producto: ' . $producto->nombre);
+                        }
+
+                        $precioUnitario = (float) $detalle['precio_unitario'];
+                        $cantidad = (int) $detalle['cantidad'];
+                        $descuento = (float) ($detalle['descuento'] ?? 0);
+                        $subtotal = ($precioUnitario * $cantidad) - $descuento;
+
+                        DetalleDocumento::create([
+                            'id_documento' => $documento->id_documento,
+                            'id_producto' => $producto->id_producto,
+                            'cantidad' => $cantidad,
+                            'precio_unitario' => $precioUnitario,
+                            'descuento' => $descuento,
+                            'subtotal' => $subtotal,
+                        ]);
+
+                        $producto->decrement('stock', $cantidad);
+                        $total += $subtotal;
+                    }
+
+                    $documento->update(['total' => $total]);
+
+                    return $documento->fresh(['cliente', 'usuario', 'detalles.producto']);
+                });
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Si es error de duplicado (23505 en PostgreSQL), reintentar
+                if ($e->errorInfo[0] === '23505' && $attempt < $maxAttempts) {
+                    continue;
                 }
-
-                if (!$producto->estado) {
-                    throw new \Exception('El producto está inactivo: ' . $producto->nombre);
-                }
-
-                if ($producto->stock < $detalle['cantidad']) {
-                    throw new \Exception('Stock insuficiente para el producto: ' . $producto->nombre);
-                }
-
-                $precioUnitario = (float) $detalle['precio_unitario'];
-                $cantidad = (int) $detalle['cantidad'];
-                $descuento = (float) ($detalle['descuento'] ?? 0);
-                $subtotal = ($precioUnitario * $cantidad) - $descuento;
-
-                DetalleDocumento::create([
-                    'id_documento' => $documento->id_documento,
-                    'id_producto' => $producto->id_producto,
-                    'cantidad' => $cantidad,
-                    'precio_unitario' => $precioUnitario,
-                    'descuento' => $descuento,
-                    'subtotal' => $subtotal,
-                ]);
-
-                $producto->decrement('stock', $cantidad);
-
-                $total += $subtotal;
+                throw $e;
             }
-
-            $documento->update([
-                'total' => $total,
-            ]);
-
-            return $documento->fresh(['cliente', 'usuario', 'detalles.producto']);
-        });
+        }
+        
+        throw new \Exception('No se pudo generar un número único después de ' . $maxAttempts . ' intentos');
     }
 
     public function delete(int $id): bool
@@ -130,14 +141,25 @@ class EloquentVentaRepository implements VentaRepositoryInterface
      */
     private function generarNroDocumentoUnico(): int
     {
-        $ultimoDocumento = DocumentoComercial::where('tipo_documento', 'venta')
-            ->orderByDesc('nro_documento')
-            ->lockForUpdate()
-            ->first();
-
-        $ultimo = (int) ($ultimoDocumento?->nro_documento ?? 0);
-
-        return $ultimo + 1;
+        // Obtener el máximo número actual
+        $maxNumber = DocumentoComercial::where('tipo_documento', 'venta')
+            ->max('nro_documento');
+        
+        $nextNumber = $maxNumber ? $maxNumber + 1 : 1;
+        
+        // Verificar y ajustar si ya existe (por duplicados)
+        $exists = DocumentoComercial::where('tipo_documento', 'venta')
+            ->where('nro_documento', $nextNumber)
+            ->exists();
+        
+        while ($exists) {
+            $nextNumber++;
+            $exists = DocumentoComercial::where('tipo_documento', 'venta')
+                ->where('nro_documento', $nextNumber)
+                ->exists();
+        }
+        
+        return $nextNumber;
     }
 
     public function countActivas(): int
