@@ -104,7 +104,7 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request): JsonResponse
     {
-        $usuario = Usuario::where('email', $request->email)->first();
+        $usuario = Usuario::where('email', $request->email)->with('rol')->first();
 
         if (!$usuario || !Hash::check($request->password, $usuario->password)) {
             return response()->json(['message' => 'Credenciales inválidas'], 401);
@@ -112,6 +112,21 @@ class AuthController extends Controller
 
         if (!$usuario->estado) {
             return response()->json(['message' => 'Usuario inactivo'], 403);
+        }
+
+        // Si el usuario no tiene 2FA configurado (por ejemplo, el usuario administrador inicial), ingresa directo
+        if (empty($usuario->two_factor_secret)) {
+            $usuario->tokens()->delete();
+            $token = $usuario->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'message' => 'Inicio de sesión correcto',
+                'two_factor_required' => false,
+                'token' => $token,
+                'token_type' => 'Bearer',
+                'expires_in_minutes' => 60,
+                'user' => $usuario,
+            ]);
         }
 
         if (!$usuario->two_factor_confirmed) {

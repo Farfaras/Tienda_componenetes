@@ -34,5 +34,5 @@ RUN mkdir -p storage/framework/cache \
 
 EXPOSE 10000
 
-# Añadimos limpieza de caché de Laravel antes de correr las migraciones y el servidor
-CMD sh -c "php artisan storage:link || true && php artisan config:clear && php artisan cache:clear && php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=10000"
+# Añadimos limpieza de caché de Laravel antes de correr las migraciones, seeders y el servidor
+CMD sh -c "php artisan storage:link || true && php artisan config:clear && php artisan cache:clear && php artisan migrate --force && php artisan db:seed --force && php artisan serve --host=0.0.0.0 --port=10000"
